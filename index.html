@@ -1,0 +1,1807 @@
+<!DOCTYPE html>
+<html lang="id">
+  <link rel="manifest" href="manifest.json">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js');
+  }
+</script>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Keuangan Pribadi</title>
+  
+  <style>
+    /* ==========================================================================
+       1. LAYOUT UTAMA, MOTION 120Hz, DAN ANTI-HIGHLIGHT TEXT
+       ========================================================================== */
+    :root {
+      --motion-fast: 110ms;
+      --motion-med: 180ms;
+      --motion-sheet: 360ms;
+      --ease-ios: cubic-bezier(0.22, 1, 0.36, 1);
+      --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --glass-bg: rgba(255, 255, 255, 0.12);
+      --glass-border: rgba(255, 255, 255, 0.22);
+      --card-radius: 24px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    input, select, textarea {
+      -webkit-user-select: auto;
+      user-select: auto;
+    }
+
+    button {
+      font: inherit;
+      color: inherit;
+    }
+
+    html, body {
+      width: 100%;
+      max-width: 100vw;
+      overflow-x: hidden;
+      background: #0f1224;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Arial, sans-serif;
+      min-height: 100vh;
+      color: #ffffff;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 16px;
+      position: relative;
+      background: #0f1224;
+      background-image:
+        radial-gradient(at 0% 0%, rgba(100, 180, 255, 0.45) 0px, transparent 55%),
+        radial-gradient(at 100% 0%, rgba(180, 120, 255, 0.45) 0px, transparent 55%),
+        radial-gradient(at 100% 100%, rgba(50, 255, 200, 0.35) 0px, transparent 50%),
+        radial-gradient(at 0% 100%, rgba(255, 100, 180, 0.3) 0px, transparent 50%);
+      background-attachment: fixed;
+      background-size: cover;
+    }
+
+    body::before { display: none; }
+
+    body.modal-scroll-locked {
+      position: fixed;
+      overflow: hidden;
+      width: 100%;
+      left: 0;
+      right: 0;
+    }
+
+    body.modal-scroll-locked .app-container {
+      pointer-events: none;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 440px;
+      margin-top: 8px;
+      margin-bottom: 90px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .app-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 8px;
+      z-index: 20;
+      position: relative;
+    }
+
+    .app-title {
+      font-size: 20px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #ffffff 60%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 85%;
+      transition: opacity var(--motion-med) linear, transform var(--motion-med) var(--ease-ios), filter var(--motion-med) linear;
+      will-change: opacity, transform, filter;
+    }
+
+    .app-title.greeting-changing {
+      opacity: 0;
+      transform: translate3d(0, -6px, 0);
+      filter: blur(5px);
+    }
+
+    .settings-btn,
+    .refresh-btn,
+    .eye-btn,
+    .close-btn,
+    .settings-list-btn,
+    .submit-btn,
+    .fab-btn {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+    }
+
+    .settings-btn {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      transition: transform var(--motion-fast) var(--ease-pop), background-color var(--motion-fast) linear;
+    }
+    .settings-btn:active { transform: translateZ(0) scale(0.9); }
+    .settings-btn svg { width: 18px; height: 18px; fill: none; stroke: white; stroke-width: 2; }
+
+    .glass-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--card-radius);
+      padding: 24px;
+      box-shadow: 0 12px 40px 0 rgba(15, 23, 42, 0.3);
+      position: relative;
+      overflow: hidden;
+      z-index: 10;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+    }
+    .glass-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 40%;
+      background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 100%);
+      pointer-events: none;
+    }
+
+    .balance-section { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 8px; margin-bottom: 16px; }
+    .balance-header { display: flex; align-items: center; gap: 8px; justify-content: center; }
+    .balance-label { font-size: 14px; text-transform: uppercase; letter-spacing: 2px; color: rgba(255, 255, 255, 0.7); font-weight: 600; }
+
+    .eye-btn {
+      width: 32px;
+      height: 32px;
+      cursor: pointer;
+      opacity: 0.78;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      background: rgba(255,255,255,0.08);
+      border-radius: 50%;
+      transition: transform var(--motion-fast) var(--ease-pop), opacity var(--motion-fast) linear, background-color var(--motion-fast) linear;
+    }
+    .eye-btn:hover { opacity: 1; background: rgba(255,255,255,0.13); }
+    .eye-btn:active { transform: translateZ(0) scale(0.86); }
+    .eye-btn svg { width: 18px; height: 18px; fill: none; stroke: white; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .balance-amount {
+      font-size: 40px;
+      font-weight: 700;
+      letter-spacing: -1px;
+      white-space: nowrap;
+      transition: opacity var(--motion-med) linear, transform var(--motion-med) var(--ease-ios), filter var(--motion-med) linear, color var(--motion-fast) linear, text-shadow var(--motion-fast) linear;
+    }
+    .balance-amount.balance-negative {
+      color: #f87171;
+      text-shadow: 0 0 18px rgba(248, 113, 113, 0.22);
+    }
+
+    .flow-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: 16px; }
+    .flow-item { display: flex; flex-direction: column; gap: 4px; align-items: center; text-align: center; }
+    .flow-title { font-size: 12px; color: rgba(255, 255, 255, 0.6); display: flex; align-items: center; gap: 6px; }
+    .flow-indicator { width: 8px; height: 8px; border-radius: 50%; }
+    .indicator-in { background-color: #22c55e; box-shadow: 0 0 10px #22c55e; }
+    .indicator-out { background-color: #ef4444; box-shadow: 0 0 10px #ef4444; }
+    .flow-value { font-size: 18px; font-weight: 600; transition: opacity var(--motion-med) linear, transform var(--motion-med) var(--ease-ios); }
+
+    .last-section { position: relative; min-height: 220px; }
+    .section-header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; margin-bottom: 8px; padding-left: 4px; }
+    .section-title { font-size: 18px; font-weight: 600; color: rgba(255, 255, 255, 0.9); }
+    .refresh-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(15,23,42,0.18);
+      transition: transform var(--motion-fast) var(--ease-pop), background-color var(--motion-fast) linear, opacity var(--motion-fast) linear;
+    }
+    .refresh-btn:active { transform: translateZ(0) scale(0.9); }
+    .refresh-btn:disabled { opacity: 0.55; cursor: default; }
+    .refresh-btn svg { width: 18px; height: 18px; fill: none; stroke: white; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .refresh-btn.is-refreshing svg { animation: refreshSpin 700ms linear infinite; }
+    @keyframes refreshSpin { to { transform: rotate(360deg); } }
+
+    .transaction-list { display: flex; flex-direction: column; gap: 12px; position: relative; }
+    .stacked-list {
+      max-height: min(66vh, 610px);
+      overflow-y: auto;
+      overscroll-behavior-y: contain;
+      -webkit-overflow-scrolling: touch;
+      padding: 4px 4px 96px 4px;
+      scroll-padding-top: 12px;
+      scrollbar-width: thin;
+      perspective: 1000px;
+      transform: translateZ(0);
+    }
+    .stacked-list::-webkit-scrollbar,
+    #historyContainer::-webkit-scrollbar { width: 6px; }
+    .stacked-list::-webkit-scrollbar-track,
+    #historyContainer::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
+    .stacked-list::-webkit-scrollbar-thumb,
+    #historyContainer::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
+
+    .transaction-item {
+      --stack-scale: 1;
+      --stack-y: 0px;
+      --press-scale: 1;
+      --stack-slot: 0;
+      --stack-z: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 12px 26px rgba(0,0,0,0.14);
+      transform: translate3d(0, var(--stack-y), 0) scale(var(--stack-scale)) scale(var(--press-scale));
+      transform-origin: center top;
+      z-index: var(--stack-z);
+      will-change: transform, opacity;
+      backface-visibility: hidden;
+      transition: background-color var(--motion-fast) linear, border-color var(--motion-fast) linear, box-shadow var(--motion-fast) linear, opacity var(--motion-fast) linear;
+    }
+    .stacked-list .transaction-item {
+      position: sticky;
+      top: var(--stack-top, 8px);
+      box-shadow: 0 -8px 24px rgba(0,0,0,0.18), 0 14px 32px rgba(15,23,42,0.18);
+    }
+    .transaction-item:active { background: rgba(255, 255, 255, 0.18); --press-scale: 0.985; }
+    .transaction-item.removing { opacity: 0.35; --stack-scale: 0.98; pointer-events: none; }
+    #historyContainer .transaction-item { position: relative; top: auto; box-shadow: none; transform: none; opacity: 1; z-index: 1; }
+
+    .transaction-left { display: flex; align-items: center; gap: 14px; pointer-events: none; min-width: 0; }
+    .icon-wrapper { width: 42px; height: 42px; border-radius: 14px; background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .icon-svg { width: 22px; height: 22px; fill: none; stroke: #ffffff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .tx-details { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .tx-title { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+    .tx-date { font-size: 12px; color: rgba(255, 255, 255, 0.5); }
+    .tx-amount { font-size: 16px; font-weight: 700; white-space: nowrap; pointer-events: none; }
+    .amount-in { color: #4ade80; } .amount-out { color: #f87171; }
+
+    .tx-checkbox {
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-radius: 6px;
+      background: rgba(0,0,0,0.2);
+      transition: background-color var(--motion-fast) linear, border-color var(--motion-fast) linear, transform var(--motion-fast) var(--ease-pop);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      flex-shrink: 0;
+    }
+    .tx-checkbox:checked { background: #3b82f6; border-color: #3b82f6; transform: scale(1.04); }
+    .tx-checkbox:checked::after { content: '✓'; color: white; font-size: 14px; font-weight: bold; }
+
+    /* ==========================================================================
+       2. SEGMEN CONTROL (TIPE TRANSAKSI)
+       ========================================================================== */
+    .segmented-control { display: flex; position: relative; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 14px; padding: 3px; width: 100%; height: 48px; align-items: center; justify-content: center; }
+    .segmented-control input[type="radio"] { display: none; }
+    .segment-label { flex: 1; text-align: center; font-size: 14px; font-weight: 600; z-index: 2; cursor: pointer; color: rgba(255, 255, 255, 0.5); transition: color var(--motion-med) linear, text-shadow var(--motion-med) linear; height: 100%; display: flex; align-items: center; justify-content: center; }
+    .segmented-glider { position: absolute; height: calc(100% - 6px); width: calc(50% - 3px); border-radius: 11px; left: 3px; z-index: 1; transition: transform var(--motion-med) var(--ease-ios), background-color var(--motion-med) linear, border-color var(--motion-med) linear; pointer-events: none; transform: translate3d(0,0,0); }
+
+    #typeExpense:checked ~ .segmented-glider { background: linear-gradient(135deg, rgba(239,68,68,0.25) 0%, rgba(239,68,68,0.1) 100%); border: 1px solid rgba(239,68,68,0.5); transform: translate3d(0,0,0); }
+    #typeExpense:checked + .label-expense { color: #f87171; text-shadow: 0 0 10px rgba(239,68,68,0.5); }
+    #typeIncome:checked ~ .segmented-glider { background: linear-gradient(135deg, rgba(34,197,94,0.25) 0%, rgba(34,197,94,0.1) 100%); border: 1px solid rgba(34,197,94,0.5); transform: translate3d(100%,0,0); }
+    #typeIncome:checked + .label-income { color: #4ade80; text-shadow: 0 0 10px rgba(34,197,94,0.5); }
+
+    /* ==========================================================================
+       3. MODAL & ANIMASI
+       ========================================================================== */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 100; opacity: 0; pointer-events: none; transition: opacity var(--motion-med) linear; will-change: opacity; transform: translateZ(0); }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+
+    .form-modal { position: fixed; bottom: 0; left: 50%; transform: translate3d(-50%, 100%, 0); width: 100%; max-width: 440px; background: rgba(255, 255, 255, 0.14); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-top: 1px solid rgba(255, 255, 255, 0.3); border-left: 1px solid rgba(255, 255, 255, 0.2); border-right: 1px solid rgba(255, 255, 255, 0.2); border-radius: 32px 32px 0 0; padding: 28px 24px 40px 24px; box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.3); z-index: 101; transition: transform var(--motion-sheet) var(--ease-ios); will-change: transform; backface-visibility: hidden; contain: layout paint style; }
+    .form-modal.active { transform: translate3d(-50%, 0, 0); }
+
+    #historyModal {
+      overflow: hidden;
+      overscroll-behavior: contain;
+    }
+
+    #historyModal .modal-header,
+    #historyModal .form-group,
+    #historyModal #bulkActionBar {
+      flex-shrink: 0;
+    }
+
+    #historyContainer {
+      min-height: 0;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+      contain: layout paint style;
+    }
+
+    #historyContainer .transaction-item {
+      contain: layout paint style;
+      content-visibility: auto;
+      contain-intrinsic-size: 76px;
+    }
+
+
+    .currency-panel {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-top: 14px;
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      contain: layout paint style;
+    }
+
+    .currency-panel-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.7);
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+
+    .currency-rate-badge {
+      font-size: 11px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.58);
+      text-transform: none;
+      letter-spacing: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 190px;
+      text-align: right;
+    }
+
+    .currency-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .currency-refresh-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .currency-refresh-btn {
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.84);
+      width: 38px;
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      touch-action: manipulation;
+      transform: translateZ(0);
+      transition: transform var(--motion-fast) var(--ease-pop), background-color var(--motion-fast) linear, border-color var(--motion-fast) linear, opacity var(--motion-fast) linear;
+    }
+
+    .currency-refresh-btn svg {
+      width: 17px;
+      height: 17px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .currency-refresh-btn:active { transform: translateZ(0) scale(0.94); }
+    .currency-refresh-btn:disabled { opacity: 0.5; cursor: wait; }
+
+    .currency-toggle-btn {
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.72);
+      padding: 11px 12px;
+      font-size: 14px;
+      font-weight: 650;
+      cursor: pointer;
+      touch-action: manipulation;
+      transform: translateZ(0);
+      transition: transform var(--motion-fast) var(--ease-pop), background-color var(--motion-fast) linear, border-color var(--motion-fast) linear, color var(--motion-fast) linear;
+    }
+
+    .currency-toggle-btn:active { transform: translateZ(0) scale(0.97); }
+
+    .currency-toggle-btn.active {
+      color: #ffffff;
+      background: rgba(59,130,246,0.28);
+      border-color: rgba(147,197,253,0.54);
+      box-shadow: inset 0 0 0 1px rgba(147,197,253,0.12);
+    }
+
+    .modal-center { position: fixed; top: 50%; left: 50%; transform: translate3d(-50%, -50%, 0) scale(0.95); bottom: auto; border-radius: 28px; padding: 30px 24px; opacity: 0; pointer-events: none; transition: transform var(--motion-med) var(--ease-ios), opacity var(--motion-med) linear; will-change: transform, opacity; z-index: 105; }
+    .modal-center.active { transform: translate3d(-50%, -50%, 0) scale(1); opacity: 1; pointer-events: auto; }
+
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .modal-title { font-size: 19px; font-weight: 600; }
+    .close-btn { background: rgba(255,255,255,0.1); border: none; color: white; height: 28px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; padding: 0 10px; font-weight: 500; transition: transform var(--motion-fast) var(--ease-pop), background-color var(--motion-fast) linear; }
+    .close-btn:active { transform: translateZ(0) scale(0.95); }
+
+    .settings-list-btn { width: 100%; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); padding: 16px; border-radius: 14px; color: white; font-size: 16px; font-weight: 500; display: flex; align-items: center; gap: 12px; margin-bottom: 12px; cursor: pointer; transition: transform var(--motion-fast) var(--ease-pop), background-color var(--motion-fast) linear; }
+    .settings-list-btn:active { background: rgba(255,255,255,0.2); transform: translateZ(0) scale(0.98); }
+
+    .form-group { margin-bottom: 18px; display: flex; flex-direction: column; gap: 6px; }
+    .form-label { font-size: 12px; font-weight: 500; color: rgba(255, 255, 255, 0.7); padding-left: 4px; }
+    .input-control { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 14px; padding: 14px 16px; font-size: 15px; color: #ffffff; outline: none; transition: background-color var(--motion-med) linear, border-color var(--motion-med) linear, box-shadow var(--motion-med) linear; width: 100%; }
+    .input-control:focus { background: rgba(255, 255, 255, 0.15); border-color: rgba(255, 255, 255, 0.4); box-shadow: 0 0 12px rgba(255, 255, 255, 0.1); }
+    .input-control.input-error { background: rgba(239, 68, 68, 0.12); border-color: rgba(248, 113, 113, 0.88); box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.14); animation: inputNudge 180ms var(--ease-ios); }
+
+    @keyframes inputNudge {
+      0% { transform: translate3d(0, 0, 0); }
+      35% { transform: translate3d(-3px, 0, 0); }
+      70% { transform: translate3d(3px, 0, 0); }
+      100% { transform: translate3d(0, 0, 0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .input-control.input-error { animation: none; }
+      .app-title { transition: none; }
+    }
+
+    .submit-btn { width: 100%; background: linear-gradient(135deg, #2563eb 0%, #06b6d4 100%); border: none; border-radius: 14px; padding: 16px; color: white; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4); transition: transform var(--motion-fast) var(--ease-pop), box-shadow var(--motion-fast) linear, opacity var(--motion-fast) linear; }
+    .submit-btn:hover { box-shadow: 0 0 24px rgba(6, 182, 212, 0.7); transform: translate3d(0, -1px, 0); }
+    .submit-btn:disabled { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.4); cursor: not-allowed; box-shadow: none; }
+
+    .fab-btn { position: fixed; bottom: 24px; left: 50%; transform: translate3d(-50%, 0, 0); width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); border: 1px solid rgba(255,255,255,0.3); box-shadow: 0 8px 25px rgba(6, 182, 212, 0.5); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 90; transition: transform var(--motion-med) var(--ease-pop), box-shadow var(--motion-fast) linear; will-change: transform; }
+    .fab-btn:active { transform: translate3d(-50%, 0, 0) scale(0.9); }
+    .fab-icon { width: 24px; height: 24px; fill: none; stroke: white; stroke-width: 3; stroke-linecap: round; }
+
+    .toast { position: fixed; top: 24px; left: 50%; transform: translate3d(-50%, -100px, 0); background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.3); padding: 14px 24px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); z-index: 200; display: flex; align-items: center; gap: 10px; font-weight: 500; font-size: 14px; width: calc(100% - 32px); max-width: 380px; transition: transform var(--motion-sheet) var(--ease-ios); will-change: transform; }
+    .toast.show { transform: translate3d(-50%, 0, 0); }
+    .toast-icon { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 1ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="toastNotification" class="toast">
+    <div id="toastBadge" class="toast-icon"></div>
+    <span id="toastMessage">Notifikasi</span>
+  </div>
+
+  <div id="mainOverlay" class="modal-overlay" onclick="tutupSemuaModal()"></div>
+
+  <div id="usernameModal" class="form-modal modal-center">
+    <h3 class="modal-title" style="text-align:center; margin-bottom: 8px;" id="usernameTitle">Selamat Datang!</h3>
+    <p style="text-align:center; color: rgba(255,255,255,0.7); font-size: 14px; margin-bottom: 24px;">Silakan masukkan nama Anda.</p>
+    <form onsubmit="simpanUsername(event)" novalidate>
+      <input type="text" id="usernameInput" class="input-control" placeholder="Maks 7 huruf..." maxlength="7" style="margin-bottom: 16px; text-align: center; font-size: 18px;">
+      <button type="submit" class="submit-btn">Simpan Nama</button>
+    </form>
+  </div>
+
+  <div id="settingsModal" class="form-modal modal-center">
+    <div class="modal-header" style="margin-bottom: 16px;">
+      <h3 class="modal-title">Pengaturan</h3>
+      <button class="close-btn" style="width:28px;" onclick="tutupSemuaModal()">&times;</button>
+    </div>
+    <button class="settings-list-btn" onclick="bukaModalGantiNama()">👤 Ubah Nama Profil</button>
+    <button class="settings-list-btn" onclick="bukaModalRiwayat()">📜 Riwayat Lengkap (30 Hari)</button>
+
+    <div id="currencyPanel" class="currency-panel" style="margin-top: 6px;">
+      <div class="currency-refresh-row">
+        <div class="currency-panel-title" style="flex: 1; min-width: 0;">
+          <span>Mata Uang Tampilan</span>
+          <span id="currencyRateInfo" class="currency-rate-badge">Kurs belum dimuat</span>
+        </div>
+        <button type="button" id="currencyRefreshBtn" class="currency-refresh-btn" onclick="refreshCurrencyManual()" aria-label="Refresh kurs mata uang">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.36 6.36"></path><path d="M3 12A9 9 0 0 1 18.36 5.64"></path><polyline points="21 4 21 10 15 10"></polyline><polyline points="3 20 3 14 9 14"></polyline></svg>
+        </button>
+      </div>
+      <div class="currency-toggle" role="group" aria-label="Pilih mata uang tampilan">
+        <button type="button" id="currencyIdrBtn" class="currency-toggle-btn" onclick="setDisplayCurrency('IDR')">Rupiah · Rp</button>
+        <button type="button" id="currencyUsdBtn" class="currency-toggle-btn" onclick="setDisplayCurrency('USD')">US Dollar · $</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="historyModal" class="form-modal" style="height: 85vh; display: flex; flex-direction: column; padding-bottom: 20px;">
+    <div class="modal-header" style="margin-bottom: 12px;">
+      <h3 class="modal-title">Riwayat Lengkap</h3>
+      <div style="display: flex; gap: 8px;">
+        <button class="close-btn" id="btnSelectMode" style="background: rgba(59,130,246,0.3); color: #93c5fd;" onclick="toggleSelectMode()">Pilih</button>
+        <button class="close-btn" style="width:28px;" onclick="tutupSemuaModal()">&times;</button>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom: 12px;">
+      <input type="text" id="searchHistoryInput" class="input-control" placeholder="🔍 Cari transaksi..." oninput="handleSearchHistory()">
+    </div>
+    
+    <div id="historyContainer" style="overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px; padding-right: 5px;"></div>
+    <div id="bulkActionBar" style="display: none; gap: 10px; margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 16px;">
+      <button class="submit-btn" style="margin:0; background: rgba(239, 68, 68, 0.2); color: #f87171; box-shadow: none;" onclick="hapusSemuaKonfirmasi()">Hapus Semua</button>
+      <button class="submit-btn" style="margin:0; background: #ef4444;" onclick="hapusTerpilihKonfirmasi()">Hapus Terpilih</button>
+    </div>
+  </div>
+
+  <div id="formModal" class="form-modal">
+    <div class="modal-header">
+      <h3 class="modal-title" id="formModalTitle">Tambah Transaksi</h3>
+      <button class="close-btn" style="width:28px;" onclick="tutupSemuaModal()">&times;</button>
+    </div>
+    <form id="transactionForm" onsubmit="handleFormSubmit(event)" novalidate>
+      <div class="form-group">
+        <label class="form-label" for="tanggal">Tanggal</label>
+        <input type="date" id="tanggal" class="input-control">
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Tipe Transaksi</label>
+        <div class="segmented-control">
+          <input type="radio" id="typeExpense" name="tipe" value="Pengeluaran" checked>
+          <label for="typeExpense" class="segment-label label-expense">Pengeluaran</label>
+          <input type="radio" id="typeIncome" name="tipe" value="Pemasukan">
+          <label for="typeIncome" class="segment-label label-income">Pemasukan</label>
+          <div class="segmented-glider"></div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="nominal">Nominal (Rp)</label>
+        <input type="number" id="nominal" class="input-control" placeholder="Contoh: 50000" min="1" inputmode="numeric">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="keterangan">Keterangan / Kategori</label>
+        <input type="text" id="keterangan" class="input-control" placeholder="Makan Siang / Gaji Bulanan">
+      </div>
+      <button type="submit" id="submitBtn" class="submit-btn">Simpan Transaksi</button>
+    </form>
+  </div>
+
+  <div id="actionModal" class="form-modal modal-center" style="z-index: 104;">
+    <h3 class="modal-title" style="text-align:center; margin-bottom: 20px;">Opsi Transaksi</h3>
+    <button class="settings-list-btn" onclick="prosesEditOpsi()">✏️ Edit Transaksi</button>
+    <button class="settings-list-btn" onclick="prosesHapusSatuKonfirmasi()" style="background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: #f87171;">🗑️ Hapus Transaksi</button>
+    <button class="submit-btn" onclick="tutupOpsiModal()" style="background: rgba(255,255,255,0.1); box-shadow: none; margin-top: 10px;">Batal</button>
+  </div>
+
+  <div id="confirmModal" class="form-modal modal-center" style="z-index: 105;">
+    <h3 class="modal-title" id="confirmTitle" style="text-align:center; margin-bottom: 12px;">Konfirmasi Hapus</h3>
+    <p id="confirmMsg" style="text-align:center; color: rgba(255,255,255,0.7); font-size: 14px; margin-bottom: 24px;">Apakah Anda yakin?</p>
+    <div style="display: flex; gap: 12px;">
+      <button class="submit-btn" onclick="batalHapus()" style="background: rgba(255,255,255,0.1); box-shadow: none; margin-top: 0;">Batal</button>
+      <button id="btnConfirmDelete" class="submit-btn" onclick="eksekusiHapusTransaksi()" style="background: #ef4444; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); margin-top: 0;">Hapus</button>
+    </div>
+  </div>
+
+  <div class="app-container">
+    <header class="app-header">
+      <h1 class="app-title" id="greetingText">Memuat...</h1>
+      <button class="settings-btn" onclick="bukaModalPengaturan()">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </header>
+
+    <section class="glass-card">
+      <div class="balance-section">
+        <div class="balance-header">
+          <p class="balance-label">Total Balance</p>
+          <button type="button" class="eye-btn" onclick="toggleMata()" id="eyeIconSvg" aria-label="Sembunyikan saldo" aria-pressed="false"></button>
+        </div>
+        <h2 id="totalBalance" class="balance-amount">Rp 0</h2>
+      </div>
+
+      <div class="flow-grid">
+        <div class="flow-item">
+          <span class="flow-title"><div class="flow-indicator indicator-in"></div>Pemasukan</span>
+          <span id="totalIncome" class="flow-value">Rp 0</span>
+        </div>
+        <div class="flow-item">
+          <span class="flow-title"><div class="flow-indicator indicator-out"></div>Pengeluaran</span>
+          <span id="totalExpense" class="flow-value">Rp 0</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="last-section">
+      <div class="section-header-row">
+        <h3 class="section-title">Transaksi Terakhir</h3>
+        <button type="button" id="refreshBtn" class="refresh-btn" onclick="handleManualRefresh()" aria-label="Refresh data beranda">
+          <svg viewBox="0 0 24 24">
+            <path d="M21 12a9 9 0 0 1-15.3 6.4"></path>
+            <path d="M3 12A9 9 0 0 1 18.3 5.6"></path>
+            <path d="M18 2v4h-4"></path>
+            <path d="M6 22v-4h4"></path>
+          </svg>
+        </button>
+      </div>
+      <div id="transactionContainer" class="transaction-list stacked-list">
+        <div style="text-align:center;color:rgba(255,255,255,0.5);font-size:14px;padding:20px;">Memuat data...</div>
+      </div>
+    </section>
+  </div>
+
+  <button class="fab-btn" onclick="bukaModalTransaksi()">
+    <svg class="fab-icon" viewBox="0 0 24 24">
+      <line x1="12" y1="5" x2="12" y2="19"></line>
+      <line x1="5" y1="12" x2="19" y2="12"></line>
+    </svg>
+  </button>
+
+  <script>
+    let selectedTxId = null;
+    let editingTxId = null;
+    let longPressTimer;
+    let isSelectMode = false;
+    let deleteMode = null; 
+    let isBalanceHidden = localStorage.getItem('fin_hide_balance') === 'true';
+    const MASKED_AMOUNT = '•••••••';
+    let displayCurrency = localStorage.getItem('fin_display_currency') || 'IDR';
+    let usdIdrRate = Number(localStorage.getItem('fin_usd_idr_rate')) || null;
+    let usdIdrRateDate = localStorage.getItem('fin_usd_idr_date') || '';
+    let usdIdrFetchedAt = Number(localStorage.getItem('fin_usd_idr_fetched_at')) || 0;
+    let fxRefreshTimer = null;
+    let isFxUpdating = false;
+    let fxLastErrorMessage = '';
+    let toastTimer = null;
+    let greetingTimer = null;
+    let greetingVisitInfo = null;
+
+    /* FUNGSI TOGGLE MATA SALDO */
+    function renderMataIcon() {
+      const eyeIcon = document.getElementById('eyeIconSvg');
+      if (!eyeIcon) return;
+
+      eyeIcon.innerHTML = isBalanceHidden
+        ? `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"></path><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path><path d="M14.12 14.12a3 3 0 0 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`
+        : `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+
+      eyeIcon.setAttribute('aria-pressed', String(isBalanceHidden));
+      eyeIcon.setAttribute('aria-label', isBalanceHidden ? 'Tampilkan saldo' : 'Sembunyikan saldo');
+    }
+
+    function toggleMata() {
+      isBalanceHidden = !isBalanceHidden;
+      localStorage.setItem('fin_hide_balance', isBalanceHidden);
+      renderMataIcon();
+      if (window.dbInitialized) renderDashboardFromCache();
+    }
+
+    function kunciScrollBody() {
+      if (document.body.classList.contains('modal-scroll-locked')) return;
+      modalScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+      document.body.style.top = `-${modalScrollY}px`;
+      document.body.classList.add('modal-scroll-locked');
+    }
+
+    function lepasScrollBody() {
+      if (!document.body.classList.contains('modal-scroll-locked')) return;
+      const y = Math.abs(parseInt(document.body.style.top || '0', 10)) || modalScrollY || 0;
+      document.body.classList.remove('modal-scroll-locked');
+      document.body.style.top = '';
+      window.scrollTo(0, y);
+    }
+
+    function aktifkanOverlayModal() {
+      document.getElementById('mainOverlay').classList.add('active');
+      kunciScrollBody();
+    }
+
+    function nonaktifkanOverlayModal() {
+      document.getElementById('mainOverlay').classList.remove('active');
+      lepasScrollBody();
+    }
+
+    function initModalScrollGuard() {
+      const overlay = document.getElementById('mainOverlay');
+      const historyContainer = document.getElementById('historyContainer');
+      if (overlay) {
+        overlay.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+        overlay.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
+      }
+      if (!historyContainer) return;
+
+      historyContainer.addEventListener('touchstart', (e) => {
+        historyTouchStartY = e.touches?.[0]?.clientY || 0;
+      }, { passive: true });
+
+      historyContainer.addEventListener('touchmove', (e) => {
+        const currentY = e.touches?.[0]?.clientY || historyTouchStartY;
+        const deltaY = currentY - historyTouchStartY;
+        const atTop = historyContainer.scrollTop <= 0;
+        const atBottom = Math.ceil(historyContainer.scrollTop + historyContainer.clientHeight) >= historyContainer.scrollHeight;
+
+        if ((atTop && deltaY > 0) || (atBottom && deltaY < 0)) {
+          e.preventDefault();
+        }
+        e.stopPropagation();
+      }, { passive: false });
+
+      historyContainer.addEventListener('wheel', (e) => {
+        e.stopPropagation();
+      }, { passive: true });
+    }
+
+    /* KONTROL UI MODAL & PEMILIHAN */
+    function resetSelectMode() {
+      isSelectMode = false;
+      document.getElementById('bulkActionBar').style.display = 'none';
+      const btn = document.getElementById('btnSelectMode');
+      btn.innerText = 'Pilih';
+      btn.style.background = 'rgba(59,130,246,0.3)';
+      btn.style.color = '#93c5fd';
+      document.querySelectorAll('.tx-checkbox').forEach(cb => {
+        cb.style.display = 'none';
+        cb.checked = false;
+        const card = cb.closest('.transaction-item');
+        card.style.background = '';
+        card.style.borderColor = 'rgba(255, 255, 255, 0.22)';
+      });
+    }
+
+    function toggleSelectMode() {
+      isSelectMode = !isSelectMode;
+      const checkboxes = document.querySelectorAll('.tx-checkbox');
+      const btn = document.getElementById('btnSelectMode');
+      const actionBar = document.getElementById('bulkActionBar');
+      
+      if(isSelectMode) {
+        checkboxes.forEach(cb => { cb.style.display = 'flex'; cb.checked = false; });
+        actionBar.style.display = 'flex';
+        btn.innerText = 'Batal';
+        btn.style.background = 'rgba(239, 68, 68, 0.3)';
+        btn.style.color = '#fca5a5';
+      } else {
+        resetSelectMode();
+      }
+    }
+
+    function tutupSemuaModal() {
+      nonaktifkanOverlayModal();
+      document.getElementById('formModal').classList.remove('active');
+      document.getElementById('settingsModal').classList.remove('active');
+      document.getElementById('usernameModal').classList.remove('active');
+      document.getElementById('historyModal').classList.remove('active');
+      document.getElementById('actionModal').classList.remove('active');
+      document.getElementById('confirmModal').classList.remove('active');
+      resetSelectMode();
+    }
+
+    function tutupOpsiModal() {
+      document.getElementById('actionModal').classList.remove('active');
+      if (!document.getElementById('historyModal').classList.contains('active')) {
+        nonaktifkanOverlayModal();
+      }
+    }
+
+    function bukaModalTransaksi() {
+      tutupSemuaModal();
+      editingTxId = null;
+      document.getElementById('formModalTitle').innerText = "Tambah Transaksi";
+      document.getElementById('transactionForm').reset();
+      document.getElementById('typeExpense').checked = true;
+      document.getElementById('tanggal').valueAsDate = new Date();
+      aktifkanOverlayModal();
+      document.getElementById('formModal').classList.add('active');
+    }
+
+    function bukaModalPengaturan() {
+      tutupSemuaModal();
+      aktifkanOverlayModal();
+      document.getElementById('settingsModal').classList.add('active');
+    }
+
+    function bukaModalGantiNama() {
+      tutupSemuaModal();
+      document.getElementById('usernameInput').value = localStorage.getItem('fin_username') || "";
+      aktifkanOverlayModal();
+      document.getElementById('usernameModal').classList.add('active');
+    }
+
+    async function bukaModalRiwayat() {
+      tutupSemuaModal();
+      document.getElementById('searchHistoryInput').value = '';
+      aktifkanOverlayModal();
+      document.getElementById('historyModal').classList.add('active');
+      await renderRiwayatPenuh();
+    }
+
+    function bukaModalOpsi(id) {
+      document.getElementById('actionModal').classList.add('active');
+      selectedTxId = id;
+    }
+
+    function prosesHapusSatuKonfirmasi() {
+      document.getElementById('actionModal').classList.remove('active');
+      deleteMode = 'single';
+      document.getElementById('confirmTitle').innerText = "Hapus Transaksi";
+      document.getElementById('confirmMsg').innerText = "Apakah Anda yakin ingin menghapus data ini?";
+      document.getElementById('confirmModal').classList.add('active');
+    }
+
+    function hapusTerpilihKonfirmasi() {
+      const terpilih = document.querySelectorAll('.tx-checkbox:checked');
+      if (terpilih.length === 0) return showToast("Pilih minimal 1 data!", false);
+      deleteMode = 'bulk';
+      document.getElementById('confirmTitle').innerText = "Hapus Terpilih";
+      document.getElementById('confirmMsg').innerText = `Apakah Anda yakin ingin menghapus ${terpilih.length} transaksi?`;
+      document.getElementById('confirmModal').classList.add('active');
+    }
+
+    function hapusSemuaKonfirmasi() {
+      deleteMode = 'all';
+      document.getElementById('confirmTitle').innerText = "PERINGATAN BAHAYA";
+      document.getElementById('confirmMsg').innerText = "Yakin ingin MENGHAPUS SELURUH riwayat Anda? Data tidak bisa dikembalikan.";
+      document.getElementById('confirmModal').classList.add('active');
+    }
+
+    function batalHapus() {
+      document.getElementById('confirmModal').classList.remove('active');
+      if(deleteMode === 'single') document.getElementById('actionModal').classList.add('active');
+    }
+
+    /* REVISI BESAR: EKSEKUSI HAPUS SEGERA MENUNGGU UI SELESAI */
+    async function eksekusiHapusTransaksi() {
+      const btn = document.getElementById('btnConfirmDelete');
+      btn.disabled = true; btn.innerText = "Menghapus...";
+
+      try {
+        document.getElementById('confirmModal').classList.remove('active');
+        if (!document.getElementById('historyModal').classList.contains('active')) {
+           nonaktifkanOverlayModal();
+        }
+
+        if (deleteMode === 'single' && selectedTxId) {
+          transaksiCache = transaksiCache.filter(tx => tx.id !== selectedTxId);
+          scheduleRefreshDashboard();
+          scheduleRenderRiwayatPenuh();
+          await nextFrame();
+          await hapusDataById(selectedTxId);
+          showToast("Transaksi dihapus!");
+        }
+        else if (deleteMode === 'bulk') {
+          const terpilih = Array.from(document.querySelectorAll('.tx-checkbox:checked')).map(cb => Number(cb.value));
+          const idSet = new Set(terpilih);
+          document.querySelectorAll('.tx-checkbox:checked').forEach(cb => cb.closest('.transaction-item')?.classList.add('removing'));
+          transaksiCache = transaksiCache.filter(tx => !idSet.has(tx.id));
+          resetSelectMode();
+          scheduleRefreshDashboard();
+          scheduleRenderRiwayatPenuh();
+          await nextFrame();
+          await hapusBanyakData(terpilih);
+          showToast(`${terpilih.length} data dihapus!`);
+        }
+        else if (deleteMode === 'all') {
+          transaksiCache = [];
+          resetSelectMode();
+          renderDashboardFromCache();
+          scheduleRenderRiwayatPenuh('');
+          await nextFrame();
+          await hapusSemuaData();
+          showToast("Seluruh riwayat dihapus!");
+        }
+      } catch (err) {
+        await refreshDashboard();
+        showToast("Terjadi kesalahan sistem", false);
+      } finally {
+        btn.disabled = false; btn.innerText = "Hapus";
+      }
+    }
+
+    function ikatkanEventLongPress(element, id) {
+      element.addEventListener('contextmenu', e => { e.preventDefault(); return false; });
+      let moved = false;
+      
+      const triggerStart = () => {
+        if(isSelectMode) return;
+        moved = false;
+        longPressTimer = setTimeout(() => {
+          if (!moved) {
+            if (navigator.vibrate) navigator.vibrate([50]);
+            aktifkanOverlayModal();
+            bukaModalOpsi(id);
+          }
+        }, 550);
+      };
+
+      const triggerCancel = () => clearTimeout(longPressTimer);
+      const handleMove = () => { moved = true; clearTimeout(longPressTimer); };
+
+      element.addEventListener('touchstart', triggerStart, { passive: true });
+      element.addEventListener('touchend', triggerCancel, { passive: true });
+      element.addEventListener('touchmove', handleMove, { passive: true });
+      element.addEventListener('mousedown', triggerStart);
+      element.addEventListener('mouseup', triggerCancel);
+      element.addEventListener('mouseleave', triggerCancel);
+
+      element.addEventListener('click', (e) => {
+        if(isSelectMode) {
+          e.preventDefault();
+          const cb = element.querySelector('.tx-checkbox');
+          if(cb) {
+            cb.checked = !cb.checked;
+            if (cb.checked) {
+              element.style.background = 'rgba(59, 130, 246, 0.2)';
+              element.style.borderColor = '#3b82f6';
+            } else {
+              element.style.background = '';
+              element.style.borderColor = 'rgba(255, 255, 255, 0.22)';
+            }
+          }
+        }
+      });
+    }
+
+    function getTanggalLokalKey(date = new Date()) {
+      const tahun = date.getFullYear();
+      const bulan = String(date.getMonth() + 1).padStart(2, '0');
+      const tanggal = String(date.getDate()).padStart(2, '0');
+      return `${tahun}-${bulan}-${tanggal}`;
+    }
+
+    function catatKunjunganHariIni() {
+      if (greetingVisitInfo) return greetingVisitInfo;
+
+      const hariIni = getTanggalLokalKey();
+      const tanggalTerakhir = localStorage.getItem('fin_last_open_date');
+      let jumlahBukaHariIni = Number(localStorage.getItem('fin_open_count_today') || '0');
+
+      if (tanggalTerakhir === hariIni) {
+        jumlahBukaHariIni += 1;
+      } else {
+        jumlahBukaHariIni = 1;
+      }
+
+      localStorage.setItem('fin_last_open_date', hariIni);
+      localStorage.setItem('fin_open_count_today', String(jumlahBukaHariIni));
+
+      greetingVisitInfo = {
+        date: hariIni,
+        count: jumlahBukaHariIni,
+        isFirstOpenToday: jumlahBukaHariIni === 1
+      };
+      return greetingVisitInfo;
+    }
+
+    function getNamaPengguna() {
+      return (localStorage.getItem('fin_username') || 'Kamu').substring(0, 7);
+    }
+
+    function getSapaanWaktuSingkat() {
+      const jam = new Date().getHours();
+      if (jam >= 5 && jam < 11) return 'Pagi';
+      if (jam >= 11 && jam <= 14) return 'Siang';
+      if (jam > 14 && jam <= 18) return 'Sore';
+      return 'Malam';
+    }
+
+    function setGreetingText(teks, animated = false) {
+      const el = document.getElementById('greetingText');
+      if (!el) return;
+
+      if (!animated) {
+        el.classList.remove('greeting-changing');
+        el.textContent = teks;
+        return;
+      }
+
+      el.classList.add('greeting-changing');
+      window.setTimeout(() => {
+        el.textContent = teks;
+        el.classList.remove('greeting-changing');
+      }, 180);
+    }
+
+    function perbaruiSapaanDinamis() {
+      const nama = getNamaPengguna();
+      const infoKunjungan = catatKunjunganHariIni();
+      const sapaanAwal = infoKunjungan.isFirstOpenToday
+        ? `Selamat datang, ${nama}`
+        : `Selamat datang kembali, ${nama}`;
+
+      setGreetingText(sapaanAwal, false);
+      clearTimeout(greetingTimer);
+      greetingTimer = window.setTimeout(() => {
+        setGreetingText(`${getSapaanWaktuSingkat()}, ${getNamaPengguna()}`, true);
+      }, 10000);
+    }
+
+    function tandaiInputError(input) {
+      if (!input) return;
+      input.classList.add('input-error');
+      window.setTimeout(() => input.classList.remove('input-error'), 1400);
+      try {
+        input.focus({ preventScroll: false });
+      } catch (err) {
+        input.focus();
+      }
+    }
+
+    function tampilkanErrorForm(message, input) {
+      tandaiInputError(input);
+      showToast(message, false);
+      return false;
+    }
+
+    function initCustomValidation() {
+      document.querySelectorAll('form').forEach(form => form.setAttribute('novalidate', 'novalidate'));
+      document.querySelectorAll('.input-control').forEach(input => {
+        input.addEventListener('input', () => input.classList.remove('input-error'), { passive: true });
+        input.addEventListener('change', () => input.classList.remove('input-error'), { passive: true });
+        input.addEventListener('invalid', (event) => event.preventDefault());
+      });
+    }
+
+    function validasiPayloadTransaksi() {
+      const tanggalInput = document.getElementById('tanggal');
+      const nominalInput = document.getElementById('nominal');
+      const keteranganInput = document.getElementById('keterangan');
+      const tipeTerpilih = document.querySelector('input[name="tipe"]:checked')?.value || 'Pengeluaran';
+      const nominalValue = Number(nominalInput.value);
+
+      if (!tanggalInput.value) {
+        tampilkanErrorForm('Tanggal wajib diisi.', tanggalInput);
+        return null;
+      }
+
+      if (!nominalInput.value || !Number.isFinite(nominalValue) || nominalValue <= 0) {
+        tampilkanErrorForm('Nominal wajib diisi dengan angka lebih dari 0.', nominalInput);
+        return null;
+      }
+
+      if (!keteranganInput.value.trim()) {
+        tampilkanErrorForm('Keterangan wajib diisi.', keteranganInput);
+        return null;
+      }
+
+      return {
+        tanggal: tanggalInput.value,
+        tipe: tipeTerpilih,
+        nominal: nominalValue,
+        keterangan: keteranganInput.value.trim()
+      };
+    }
+
+    function periksaUsername() {
+      renderMataIcon(); 
+      if (!localStorage.getItem('fin_username')) {
+        aktifkanOverlayModal();
+        document.getElementById('usernameModal').classList.add('active');
+      } else {
+        perbaruiSapaanDinamis();
+        mulaiAplikasi();
+      }
+    }
+
+    function simpanUsername(e) {
+      e.preventDefault();
+      const input = document.getElementById('usernameInput');
+      let namaBaru = input.value.trim().substring(0, 7);
+
+      if (!namaBaru) {
+        tampilkanErrorForm('Nama wajib diisi.', input);
+        return;
+      }
+
+      localStorage.setItem('fin_username', namaBaru);
+      tutupSemuaModal();
+      perbaruiSapaanDinamis();
+      showToast('Nama disimpan!');
+      if (!window.dbInitialized) mulaiAplikasi();
+    }
+
+
+    function showToast(message, isSuccess = true) {
+      const toast = document.getElementById('toastNotification');
+      const badge = document.getElementById('toastBadge');
+      const text = document.getElementById('toastMessage');
+      if (!toast || !badge || !text) return;
+
+      text.textContent = message;
+      badge.textContent = isSuccess ? '✓' : '!';
+      badge.style.background = isSuccess ? 'rgba(34,197,94,0.9)' : 'rgba(239,68,68,0.9)';
+      badge.style.color = '#fff';
+
+      clearTimeout(toastTimer);
+      toast.classList.add('show');
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    /* ==========================================================================
+       REVISI BESAR: SISTEM DATABASE INSTAN (PERSISTENT CONNECTION CACHE)
+       ========================================================================== */
+    const DB_NAME = 'KeuanganDB';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'transaksi';
+    window.dbInitialized = false;
+    
+    // Variabel Penahan Koneksi agar tidak buka-tutup berulang (Mengatasi Freeze)
+    let dbInstance = null;
+
+    // Cache memori agar UI bisa langsung berubah tanpa menunggu IndexedDB + render ulang penuh.
+    let transaksiCache = [];
+    let lastKnownId = 0;
+    let refreshFrameId = null;
+    let stackFrameId = null;
+    let historyRenderFrameId = null;
+    let modalScrollY = 0;
+    let historyTouchStartY = 0;
+
+    function nextFrame() {
+      return new Promise(resolve => requestAnimationFrame(() => resolve()));
+    }
+
+    function sortTransaksiTerbaru(data) {
+      return [...data].sort((a, b) => (b.id || 0) - (a.id || 0));
+    }
+
+    function updateLastKnownId() {
+      lastKnownId = transaksiCache.reduce((max, tx) => Math.max(max, Number(tx.id) || 0), 0);
+    }
+
+    function scheduleRefreshDashboard() {
+      if (refreshFrameId) cancelAnimationFrame(refreshFrameId);
+      refreshFrameId = requestAnimationFrame(() => {
+        refreshFrameId = null;
+        renderDashboardFromCache();
+      });
+    }
+
+    function scheduleRenderRiwayatPenuh(filterTeks = null) {
+      const keyword = filterTeks ?? document.getElementById('searchHistoryInput')?.value ?? '';
+      if (historyRenderFrameId) cancelAnimationFrame(historyRenderFrameId);
+      historyRenderFrameId = requestAnimationFrame(() => {
+        historyRenderFrameId = null;
+        renderRiwayatPenuh(keyword);
+      });
+    }
+
+
+    function clampValue(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
+
+    function setupStackedCards() {
+      const container = document.getElementById('transactionContainer');
+      if (!container) return;
+
+      const cards = Array.from(container.querySelectorAll('.transaction-item'));
+      cards.forEach((card, index) => {
+        const slot = Math.min(index, 5);
+        card.style.setProperty('--stack-slot', slot);
+        card.style.setProperty('--stack-top', `${8 + (slot * 7)}px`);
+        card.style.setProperty('--stack-z', 100 - index);
+      });
+
+      if (!container.dataset.stackBound) {
+        container.addEventListener('scroll', requestStackPaint, { passive: true });
+        container.dataset.stackBound = 'true';
+      }
+
+      if (!window.__finStackResizeBound) {
+        window.addEventListener('resize', requestStackPaint, { passive: true });
+        window.__finStackResizeBound = true;
+      }
+
+      requestStackPaint();
+    }
+
+    function requestStackPaint() {
+      if (stackFrameId) return;
+      stackFrameId = requestAnimationFrame(() => {
+        stackFrameId = null;
+        paintStackedCards();
+      });
+    }
+
+    function paintStackedCards() {
+      const container = document.getElementById('transactionContainer');
+      if (!container) return;
+
+      const cards = container.querySelectorAll('.transaction-item');
+      if (cards.length === 0) return;
+
+      const cachedStep = Number(container.dataset.cardStep || 0);
+      const cardStep = cachedStep || Math.max(cards[0].offsetHeight + 12, 72);
+      if (!cachedStep) container.dataset.cardStep = String(cardStep);
+      const scrollTop = container.scrollTop;
+
+      cards.forEach((card, index) => {
+        const start = index * cardStep;
+        const progress = clampValue((scrollTop - start) / cardStep, 0, 1);
+        const scale = 1 - (progress * 0.045);
+        const y = -progress * 5;
+        const opacity = 1 - (progress * 0.07);
+
+        card.style.setProperty('--stack-scale', scale.toFixed(3));
+        card.style.setProperty('--stack-y', `${y.toFixed(2)}px`);
+        card.style.opacity = opacity.toFixed(3);
+      });
+    }
+
+    function initDB() {
+      return new Promise((resolve, reject) => {
+        if (dbInstance) {
+          resolve(dbInstance);
+          return;
+        }
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+          }
+        };
+        request.onsuccess = (e) => {
+          dbInstance = e.target.result;
+          resolve(dbInstance);
+        };
+        request.onerror = (e) => reject("DB Error: " + e.target.error);
+      });
+    }
+
+    async function simpanKeDatabase(data) {
+      const db = await initDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction([STORE_NAME], 'readwrite');
+        const req = tx.objectStore(STORE_NAME).add(data);
+        let insertedId = null;
+        req.onsuccess = () => { insertedId = req.result; };
+        tx.oncomplete = () => resolve(insertedId);
+        tx.onerror = (e) => reject(e.target.error);
+      });
+    }
+
+    async function perbaruiDatabase(data) {
+      const db = await initDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction([STORE_NAME], 'readwrite');
+        tx.objectStore(STORE_NAME).put(data);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = (e) => reject(e.target.error);
+      });
+    }
+
+    async function ambilDataById(id) {
+      const db = await initDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction([STORE_NAME], 'readonly');
+        const req = tx.objectStore(STORE_NAME).get(id);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = (e) => reject(e.target.error);
+      });
+    }
+
+    async function ambilSemuaData() {
+      try {
+        const db = await initDB();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction([STORE_NAME], 'readonly');
+          const req = tx.objectStore(STORE_NAME).getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = (e) => reject(e.target.error);
+        });
+      } catch (e) { return []; }
+    }
+
+    async function hapusDataById(id) {
+      const db = await initDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction([STORE_NAME], 'readwrite');
+        tx.objectStore(STORE_NAME).delete(id);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = (e) => reject(e.target.error);
+      });
+    }
+    
+    /* REVISI: Fungsi Akselerasi Hapus Database Instan menggunakan .clear() */
+    async function hapusSemuaData() {
+      const db = await initDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction([STORE_NAME], 'readwrite');
+        tx.objectStore(STORE_NAME).clear();
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = (e) => reject(e.target.error);
+      });
+    }
+
+    async function hapusBanyakData(idsArray) {
+      const db = await initDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction([STORE_NAME], 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        idsArray.forEach(id => store.delete(id));
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = (e) => reject(e.target.error);
+      });
+    }
+
+    async function prosesPembersihanDataLama() {
+      const semuaData = await ambilSemuaData();
+      const batas = new Date(); batas.setDate(batas.getDate() - 30);
+      const idsLama = semuaData
+        .filter(tx => new Date(tx.tanggal).getTime() < batas.getTime())
+        .map(tx => tx.id);
+      if (idsLama.length > 0) await hapusBanyakData(idsLama);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('tanggal').valueAsDate = new Date();
+      initCustomValidation();
+      initModalScrollGuard();
+      updateCurrencyControls();
+      startFxAutoRefresh();
+      periksaUsername(); 
+    });
+
+    async function mulaiAplikasi() {
+      window.dbInitialized = true;
+      await prosesPembersihanDataLama();
+      transaksiCache = await ambilSemuaData();
+      updateLastKnownId();
+      renderDashboardFromCache();
+      updateCurrencyControls();
+      if (displayCurrency === 'USD') refreshFxRate({ silent: true });
+    }
+
+    function formatRupiah(angka) {
+      const nilai = Number(angka) || 0;
+      return Math.abs(Math.round(nilai)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+
+    function hasValidUsdRate() {
+      return Number.isFinite(Number(usdIdrRate)) && Number(usdIdrRate) > 0;
+    }
+
+    function getDisplayCurrencyPrefix() {
+      return displayCurrency === 'USD' ? '$' : 'Rp';
+    }
+
+    function formatUsdNumber(nilai) {
+      return Math.abs(Number(nilai) || 0).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    function formatDisplayCurrency(idrAmount, options = {}) {
+      const nilaiIdr = Number(idrAmount) || 0;
+      const forceSign = options.forceSign || null;
+      const useSign = forceSign || (nilaiIdr < 0 ? '-' : '');
+
+      if (displayCurrency === 'USD') {
+        if (!hasValidUsdRate()) return `${useSign}$ --`;
+        const nilaiUsd = Math.abs(nilaiIdr) / Number(usdIdrRate);
+        return `${useSign}$ ${formatUsdNumber(nilaiUsd)}`;
+      }
+
+      return `${useSign}Rp ${formatRupiah(nilaiIdr)}`;
+    }
+
+    function formatTransactionAmount(tx) {
+      if (isBalanceHidden) return `${getDisplayCurrencyPrefix()} ${MASKED_AMOUNT}`;
+      const sign = tx.tipe === 'Pemasukan' ? '+' : '-';
+      return `${sign} ${formatDisplayCurrency(tx.nominal)}`;
+    }
+
+
+    function updateCurrencyControls() {
+      const idrBtn = document.getElementById('currencyIdrBtn');
+      const usdBtn = document.getElementById('currencyUsdBtn');
+      const rateInfo = document.getElementById('currencyRateInfo');
+      const refreshBtn = document.getElementById('currencyRefreshBtn');
+
+      idrBtn?.classList.toggle('active', displayCurrency === 'IDR');
+      usdBtn?.classList.toggle('active', displayCurrency === 'USD');
+      if (refreshBtn) {
+        refreshBtn.disabled = isFxUpdating;
+        refreshBtn.setAttribute('aria-busy', String(isFxUpdating));
+        refreshBtn.title = hasValidUsdRate()
+          ? 'Refresh kurs USD/IDR'
+          : 'Ambil kurs USD/IDR dari Frankfurter';
+      }
+
+      if (!rateInfo) return;
+      if (isFxUpdating) {
+        rateInfo.textContent = 'Memperbarui kurs...';
+        return;
+      }
+      if (hasValidUsdRate()) {
+        const dateLabel = usdIdrRateDate ? ` · ${usdIdrRateDate}` : '';
+        rateInfo.textContent = `1 USD ≈ Rp ${formatRupiah(usdIdrRate)}${dateLabel}`;
+      } else if (displayCurrency === 'USD') {
+        rateInfo.textContent = fxLastErrorMessage || 'Kurs USD belum tersedia';
+      } else {
+        rateInfo.textContent = fxLastErrorMessage ? `Mode Rupiah · ${fxLastErrorMessage}` : 'Mode Rupiah';
+      }
+    }
+
+    function bacaRateFrankfurter(data) {
+      const kandidat = [
+        data?.rates?.IDR,
+        data?.quotes?.IDR,
+        data?.rate,
+        data?.data?.IDR,
+        data?.data?.IDR?.value
+      ];
+
+      for (const nilai of kandidat) {
+        const rate = Number(nilai);
+        if (Number.isFinite(rate) && rate > 0) return rate;
+      }
+      return null;
+    }
+
+    async function fetchJsonDenganTimeout(url, timeoutMs = 12000) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const response = await fetch(url, {
+          cache: 'no-store',
+          signal: controller.signal,
+          headers: { 'Accept': 'application/json' }
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    }
+
+    async function fetchUsdIdrRateFromFrankfurter() {
+      const endpoints = [
+        { nama: 'Frankfurter v2', url: 'https://api.frankfurter.dev/v2/rates?base=USD&quotes=IDR' },
+        { nama: 'Frankfurter v1', url: 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=IDR' },
+        { nama: 'Frankfurter legacy', url: 'https://api.frankfurter.app/latest?from=USD&to=IDR' }
+      ];
+
+      const errorList = [];
+      for (const endpoint of endpoints) {
+        try {
+          const data = await fetchJsonDenganTimeout(endpoint.url);
+          const rate = bacaRateFrankfurter(data);
+          if (!rate) throw new Error('IDR tidak ada di respons API');
+          return {
+            rate,
+            date: data?.date || data?.updated || new Date().toISOString().slice(0, 10),
+            source: endpoint.nama
+          };
+        } catch (err) {
+          const pesan = err?.name === 'AbortError' ? 'timeout' : (err?.message || 'gagal');
+          errorList.push(`${endpoint.nama}: ${pesan}`);
+        }
+      }
+
+      throw new Error(errorList.join(' | ') || 'Gagal mengambil kurs');
+    }
+
+    async function refreshFxRate(options = {}) {
+      const { silent = true, rerender = true } = options;
+      if (isFxUpdating) return false;
+
+      isFxUpdating = true;
+      fxLastErrorMessage = '';
+      updateCurrencyControls();
+
+      try {
+        const result = await fetchUsdIdrRateFromFrankfurter();
+        usdIdrRate = result.rate;
+        usdIdrRateDate = result.date;
+        usdIdrFetchedAt = Date.now();
+        fxLastErrorMessage = '';
+        localStorage.setItem('fin_usd_idr_rate', String(usdIdrRate));
+        localStorage.setItem('fin_usd_idr_date', usdIdrRateDate);
+        localStorage.setItem('fin_usd_idr_fetched_at', String(usdIdrFetchedAt));
+        if (!silent) showToast('Kurs USD diperbarui!', true);
+        return true;
+      } catch (err) {
+        const detail = err?.message || 'koneksi/API gagal';
+        fxLastErrorMessage = hasValidUsdRate()
+          ? 'Memakai cache kurs terakhir'
+          : 'Gagal ambil kurs USD';
+        console.warn('Gagal memperbarui kurs USD/IDR:', detail);
+        if (!silent) showToast(hasValidUsdRate() ? 'Gagal update, memakai cache kurs' : 'Gagal mengambil kurs USD', false);
+        return false;
+      } finally {
+        isFxUpdating = false;
+        updateCurrencyControls();
+        if (rerender) {
+          renderDashboardFromCache();
+          scheduleRenderRiwayatPenuh();
+        }
+      }
+    }
+
+    async function refreshCurrencyManual() {
+      await refreshFxRate({ silent: false, rerender: true });
+    }
+
+    function startFxAutoRefresh() {
+      if (fxRefreshTimer) clearInterval(fxRefreshTimer);
+      fxRefreshTimer = setInterval(() => {
+        if (displayCurrency === 'USD') refreshFxRate({ silent: true });
+      }, 30 * 60 * 1000);
+
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && displayCurrency === 'USD') refreshFxRate({ silent: true });
+      }, { passive: true });
+    }
+
+    function setDisplayCurrency(currency) {
+      if (!['IDR', 'USD'].includes(currency)) return;
+      displayCurrency = currency;
+      localStorage.setItem('fin_display_currency', displayCurrency);
+      updateCurrencyControls();
+      renderDashboardFromCache();
+      scheduleRenderRiwayatPenuh();
+
+      if (displayCurrency === 'USD') {
+        const cacheAge = Date.now() - (Number(usdIdrFetchedAt) || 0);
+        if (!hasValidUsdRate() || cacheAge > 30 * 60 * 1000) {
+          refreshFxRate({ silent: true });
+        }
+      }
+    }
+
+    function getSmartIcon(keterangan, tipe) {
+      const ket = keterangan.toLowerCase();
+      if (ket.includes('makan') || ket.includes('minum') || ket.includes('kopi') || ket.includes('burger')) return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M2 12h20M2 12a10 10 0 0 1 20 0M5 12v2a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-2M9 17v2a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-2"/></svg>`;
+      if (ket.includes('transport') || ket.includes('bensin') || ket.includes('mobil') || ket.includes('gojek') || ket.includes('sepeda')) return `<svg class="icon-svg" viewBox="0 0 24 24"><rect x="1" y="10" width="22" height="7" rx="2"/><path d="M5 10V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4M4 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm16 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>`;
+      if (ket.includes('belanja') || ket.includes('baju') || ket.includes('indomaret') || ket.includes('cicilan')) return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0"/></svg>`;
+      return tipe === 'Pemasukan' ? `<svg class="icon-svg" viewBox="0 0 24 24"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>` : `<svg class="icon-svg" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>`;
+    }
+
+    function buatNodeTransaksi(tx, isHistory = false, index = 0) {
+      const isIncome = tx.tipe === 'Pemasukan';
+      const tglArr = tx.tanggal.split('-');
+      const div = document.createElement('div');
+      div.className = 'glass-card transaction-item';
+      if (!isHistory) {
+        const slot = Math.min(index, 5);
+        div.style.setProperty('--stack-slot', slot);
+        div.style.setProperty('--stack-top', `${8 + (slot * 7)}px`);
+        div.style.setProperty('--stack-z', 100 - index);
+      }
+      
+      const checkboxHtml = isHistory ? `<input type="checkbox" class="tx-checkbox" value="${tx.id}" style="display: ${isSelectMode ? 'flex' : 'none'}; margin-right: 14px;">` : '';
+      
+      div.innerHTML = `
+        <div class="transaction-left">
+          ${checkboxHtml}
+          <div class="icon-wrapper">${getSmartIcon(tx.keterangan, tx.tipe)}</div>
+          <div class="tx-details">
+            <span class="tx-title" title="${tx.keterangan}">${tx.keterangan}</span>
+            <span class="tx-date">${tglArr[2]}/${tglArr[1]}/${tglArr[0]}</span>
+          </div>
+        </div>
+        <span class="tx-amount ${isIncome ? 'amount-in' : 'amount-out'}">${formatTransactionAmount(tx)}</span>
+      `;
+      ikatkanEventLongPress(div, tx.id);
+      return div;
+    }
+
+    function renderDashboardFromCache() {
+      const dataRiwayat = transaksiCache;
+      let totalMasuk = 0; let totalKeluar = 0;
+
+      for (const tx of dataRiwayat) {
+        if (tx.tipe === "Pemasukan") totalMasuk += Number(tx.nominal);
+        else totalKeluar += Number(tx.nominal);
+      }
+
+      const nilaiSaldo = totalMasuk - totalKeluar;
+      const teksSaldo = isBalanceHidden ? `${getDisplayCurrencyPrefix()} ${MASKED_AMOUNT}` : formatDisplayCurrency(nilaiSaldo);
+      const teksMasuk = isBalanceHidden ? `${getDisplayCurrencyPrefix()} ${MASKED_AMOUNT}` : formatDisplayCurrency(totalMasuk);
+      const teksKeluar = isBalanceHidden ? `${getDisplayCurrencyPrefix()} ${MASKED_AMOUNT}` : formatDisplayCurrency(totalKeluar);
+
+      const totalBalanceEl = document.getElementById('totalBalance');
+      totalBalanceEl.innerText = teksSaldo;
+      totalBalanceEl.classList.toggle('balance-negative', !isBalanceHidden && nilaiSaldo < 0);
+      document.getElementById('totalIncome').innerText = teksMasuk;
+      document.getElementById('totalExpense').innerText = teksKeluar;
+
+      const containerDepan = document.getElementById('transactionContainer');
+      containerDepan.replaceChildren();
+
+      if (dataRiwayat.length === 0) {
+        containerDepan.innerHTML = '<div class="glass-card" style="text-align:center;color:rgba(255,255,255,0.4);padding:20px;">Belum ada riwayat.</div>';
+        containerDepan.scrollTop = 0;
+        return;
+      }
+
+      const frag = document.createDocumentFragment();
+      sortTransaksiTerbaru(dataRiwayat).slice(0, 15).forEach((tx, index) => frag.appendChild(buatNodeTransaksi(tx, false, index)));
+      containerDepan.appendChild(frag);
+      delete containerDepan.dataset.cardStep;
+      setupStackedCards();
+    }
+
+    async function refreshDashboard() {
+      transaksiCache = await ambilSemuaData();
+      updateLastKnownId();
+      renderDashboardFromCache();
+      updateCurrencyControls();
+      if (document.getElementById('historyModal')?.classList.contains('active')) {
+        scheduleRenderRiwayatPenuh();
+      }
+    }
+
+    async function handleManualRefresh() {
+      const btn = document.getElementById('refreshBtn');
+      if (btn?.disabled) return;
+
+      try {
+        if (btn) {
+          btn.disabled = true;
+          btn.classList.add('is-refreshing');
+        }
+        if (displayCurrency === 'USD') await refreshFxRate({ silent: true, rerender: false });
+        await refreshDashboard();
+        await nextFrame();
+        showToast('Data beranda diperbarui!', true);
+      } catch (err) {
+        showToast('Gagal memperbarui data', false);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.classList.remove('is-refreshing');
+        }
+      }
+    }
+
+    async function renderRiwayatPenuh(filterTeks = '') {
+      const dataRiwayat = transaksiCache;
+      const containerRiwayat = document.getElementById('historyContainer');
+      containerRiwayat.replaceChildren();
+
+      const keyword = filterTeks.toLowerCase();
+      const dataFiltered = sortTransaksiTerbaru(dataRiwayat).filter(tx => tx.keterangan.toLowerCase().includes(keyword));
+
+      if (dataFiltered.length === 0) {
+        containerRiwayat.innerHTML = '<div class="glass-card" style="text-align:center;color:rgba(255,255,255,0.4);padding:20px;">Tidak ada data.</div>';
+        return;
+      }
+
+      const frag = document.createDocumentFragment();
+      dataFiltered.forEach((tx, index) => frag.appendChild(buatNodeTransaksi(tx, true, index))); 
+      containerRiwayat.appendChild(frag);
+    }
+
+    function handleSearchHistory() {
+      const kataKunci = document.getElementById('searchHistoryInput').value;
+      scheduleRenderRiwayatPenuh(kataKunci);
+    }
+
+    async function prosesEditOpsi() {
+      const tx = transaksiCache.find(item => item.id === selectedTxId) || await ambilDataById(selectedTxId);
+      if(tx) {
+        document.getElementById('actionModal').classList.remove('active');
+        editingTxId = tx.id;
+        document.getElementById('formModalTitle').innerText = "Edit Transaksi";
+        document.getElementById('tanggal').value = tx.tanggal;
+        document.getElementById('nominal').value = tx.nominal;
+        document.getElementById('keterangan').value = tx.keterangan;
+        
+        if (tx.tipe === "Pemasukan") document.getElementById('typeIncome').checked = true;
+        else document.getElementById('typeExpense').checked = true;
+
+        document.getElementById('formModal').classList.add('active');
+      }
+    }
+
+    /* REVISI BESAR: AWAIT KETAT UNTUK PROSES INPUT/EDIT (Langsung Muncul Tanpa Delay) */
+    async function handleFormSubmit(event) {
+      event.preventDefault();
+      const payload = validasiPayloadTransaksi();
+      if (!payload) return;
+
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true; btn.innerText = "Menyimpan...";
+
+      try {
+        document.getElementById('transactionForm').reset();
+        tutupSemuaModal();
+
+        if(editingTxId !== null) {
+          payload.id = editingTxId;
+          transaksiCache = transaksiCache.map(tx => tx.id === editingTxId ? payload : tx);
+          renderDashboardFromCache();
+          scheduleRenderRiwayatPenuh();
+          await nextFrame();
+          await perbaruiDatabase(payload);
+          showToast("Transaksi Diperbarui!", true);
+        } else {
+          const optimisticPayload = { ...payload, id: lastKnownId + 1 };
+          transaksiCache.push(optimisticPayload);
+          updateLastKnownId();
+          renderDashboardFromCache();
+          scheduleRenderRiwayatPenuh();
+          await nextFrame();
+          const insertedId = await simpanKeDatabase(payload);
+          if (insertedId && insertedId !== optimisticPayload.id) {
+            optimisticPayload.id = insertedId;
+            updateLastKnownId();
+            scheduleRefreshDashboard();
+          }
+          showToast("Transaksi Dicatat!", true);
+        }
+        
+      } catch (err) {
+        await refreshDashboard();
+        showToast("Terjadi kendala penyimpanan", false); 
+      } finally { 
+        btn.disabled = false; btn.innerText = "Simpan Transaksi"; 
+      }
+    }
+  </script>
+</body>
+</html>
